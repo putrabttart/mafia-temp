@@ -34,6 +34,7 @@ export default function HomePage() {
   const [lastRefreshed, setLastRefreshed] = useState('');
   const [detail, setDetail] = useState(null);
   const [toast, setToast] = useState('');
+  const displayedMessages = useMemo(() => (messages || []).slice(0, 3), [messages]);
 
   async function copyToClipboard(text) {
     try {
@@ -136,11 +137,8 @@ export default function HomePage() {
               <div className="bg-primary text-white d-flex align-items-center justify-content-center rounded" style={{ width: 40, height: 40 }}>
                 <i className="bi bi-envelope-fill" />
               </div>
-              <h1 className="h5 mb-0">Mafia Tempmail</h1>
+              <h1 className="h5 mb-0">PBS Mail</h1>
             </div>
-            <Link href="/admin" className="btn btn-sm btn-outline-secondary">
-              <i className="bi bi-gear me-1" /> Admin
-            </Link>
           </div>
         </div>
       </header>
@@ -233,7 +231,7 @@ export default function HomePage() {
                 )}
                 {!loading && messages.length > 0 && (
                   <div className="list-group list-group-flush">
-                    {messages.map((msg) => (
+                      {displayedMessages.map((msg) => (
                       <button
                         key={msg.id}
                         type="button"

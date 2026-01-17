@@ -2,7 +2,7 @@ import './globals.css';
 import Script from 'next/script';
 
 export const metadata = {
-  title: 'Mafia Temp Mail',
+  title: 'PBS Mail',
   description: 'Temporary email service built with Next.js'
 };
 

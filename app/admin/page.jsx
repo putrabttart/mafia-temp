@@ -15,14 +15,25 @@ function useAdminKey() {
   const [key, setKey] = useState('');
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('mafiaAdminKey') : '';
-    if (stored) setKey(stored);
+    const storedNew = typeof window !== 'undefined' ? window.localStorage.getItem('pbsAdminKey') : '';
+    const storedOld = typeof window !== 'undefined' ? window.localStorage.getItem('mafiaAdminKey') : '';
+    const initial = storedNew || storedOld || '';
+    if (initial) {
+      setKey(initial);
+      // migrate old key to new name
+      try {
+        window.localStorage.setItem('pbsAdminKey', initial);
+        if (storedOld) window.localStorage.removeItem('mafiaAdminKey');
+      } catch (e) {
+        console.error('Failed to migrate admin key', e);
+      }
+    }
   }, []);
 
   const persist = (val) => {
     setKey(val);
     try {
-      window.localStorage.setItem('mafiaAdminKey', val);
+      window.localStorage.setItem('pbsAdminKey', val);
     } catch (e) {
       console.error('Failed to persist admin key', e);
     }
