@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 function useBootstrap() {
   useEffect(() => {
@@ -30,6 +32,7 @@ function useAdminKey() {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   useBootstrap();
   const [adminKey, setAdminKey] = useAdminKey();
   const [stats, setStats] = useState(null);
@@ -41,6 +44,19 @@ export default function AdminPage() {
   const [toast, setToast] = useState('');
   const [newDomain, setNewDomain] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    const ensureSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace('/admin/login');
+        return;
+      }
+      setSessionChecked(true);
+    };
+    ensureSession();
+  }, [router]);
 
   const authHeaders = adminKey ? { 'x-admin-key': adminKey } : {};
 
@@ -57,6 +73,7 @@ export default function AdminPage() {
   }
 
   const loadAll = async () => {
+    if (!sessionChecked) return;
     if (!adminKey) return;
     setLoading(true);
     try {
@@ -83,7 +100,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (adminKey) loadAll();
-  }, [adminKey]);
+  }, [adminKey, sessionChecked]);
 
   useEffect(() => {
     if (!toast) return undefined;
