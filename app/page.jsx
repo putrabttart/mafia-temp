@@ -28,6 +28,9 @@ export default function HomePage() {
     []
   );
   const [address, setAddress] = useState(initialAddress);
+  const [localPart, setLocalPart] = useState(initialAddress.split('@')[0]);
+  const [selectedDomain, setSelectedDomain] = useState(initialAddress.split('@')[1] || DEFAULT_DOMAIN);
+  const [domains, setDomains] = useState([]);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -122,6 +125,29 @@ export default function HomePage() {
   }, [address]);
 
   useEffect(() => {
+    async function loadDomains() {
+      try {
+        const res = await fetch('/api/domains');
+        const data = await res.json();
+        const active = (data.domains || []).map((d) => d.name);
+        setDomains(active);
+        if (active.length > 0) {
+          // ensure selectedDomain is valid
+          if (!active.includes(selectedDomain)) setSelectedDomain(active[0]);
+        }
+      } catch (e) {
+        console.error('Failed to load domains', e);
+      }
+    }
+    loadDomains();
+  }, []);
+
+  useEffect(() => {
+    const newAddr = `${localPart}@${selectedDomain}`;
+    setAddress(newAddr);
+  }, [localPart, selectedDomain]);
+
+  useEffect(() => {
     if (!toast) return undefined;
     const timer = setTimeout(() => setToast(''), 1800);
     return () => clearTimeout(timer);
@@ -157,12 +183,23 @@ export default function HomePage() {
                   <i className="bi bi-at" />
                 </span>
                 <input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  value={localPart}
+                  onChange={(e) => setLocalPart((e.target.value || '').replace(/\s+/g, ''))}
                   className="form-control border-0 fs-5"
-                  placeholder="your-email@selebungms.my.id"
+                  placeholder="your-alias"
                   spellCheck="false"
                 />
+                <span className="input-group-text border-0 bg-white">@</span>
+                <select
+                  className="form-select border-0 fs-6"
+                  value={selectedDomain}
+                  onChange={(e) => setSelectedDomain(e.target.value)}
+                  aria-label="Select domain"
+                >
+                  {(domains.length ? domains : [DEFAULT_DOMAIN]).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
               </div>
               <div className="d-grid gap-2 d-sm-flex">
                 <button
@@ -174,12 +211,9 @@ export default function HomePage() {
                 <button
                   className="btn btn-outline-primary flex-grow-1"
                   onClick={() => {
-                    const current = address.trim();
-                    let domain = DEFAULT_DOMAIN;
-                    if (current.includes('@')) domain = current.split('@')[1] || domain;
                     const alias = randomAlias(10);
-                    const fullAddr = `${alias}@${domain}`;
-                    setAddress(fullAddr);
+                    setLocalPart(alias);
+                    const fullAddr = `${alias}@${selectedDomain}`;
                     registerAlias(fullAddr);
                     setToast('✓ New address generated');
                   }}
