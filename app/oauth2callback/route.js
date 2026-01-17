@@ -8,15 +8,25 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
+  const error = searchParams.get('error');
 
   try {
-    // State validation optional di development; hanya pastikan code ada
-    if (!code) {
-      return new NextResponse(JSON.stringify({ error: 'No code provided' }), { status: 400 });
+    // Check if user denied access
+    if (error) {
+      return NextResponse.redirect(new URL('/?error=access_denied', request.url));
     }
+
+    // Check if code is provided
+    if (!code) {
+      return NextResponse.redirect(new URL('/?error=no_code', request.url));
+    }
+
     await exchangeCode(code, null);
-    return new NextResponse('Auth berhasil! Anda bisa menutup tab ini.');
+    
+    // Redirect to admin page after successful auth
+    return NextResponse.redirect(new URL('/admin?auth=success', request.url));
   } catch (err) {
-    return handleError(err);
+    console.error('OAuth callback error:', err);
+    return NextResponse.redirect(new URL(`/admin?error=${encodeURIComponent(err.message)}`, request.url));
   }
 }
