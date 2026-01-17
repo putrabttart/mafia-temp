@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-const DEFAULT_DOMAIN = 'selebungms.my.id';
+const DEFAULT_DOMAIN = 'pbs.web.id';
 const AUTO_REFRESH_MS = 10000;
 
 function randomAlias(length = 10) {
