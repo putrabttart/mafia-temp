@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function DELETE(request, { params }) {
   try {
     requireAdmin(request);
-    const payload = deleteAlias(params.address);
+    const payload = await deleteAlias(params.address);
     return respond(payload);
   } catch (err) {
     return handleError(err);

@@ -8,7 +8,7 @@ export async function PUT(request, { params }) {
   try {
     requireAdmin(request);
     const body = await request.json();
-    const payload = updateDomain(params.name, body || {});
+    const payload = await updateDomain(params.name, body || {});
     return respond(payload);
   } catch (err) {
     return handleError(err);
@@ -18,7 +18,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     requireAdmin(request);
-    const payload = deleteDomain(params.name);
+    const payload = await deleteDomain(params.name);
     return respond(payload);
   } catch (err) {
     return handleError(err);

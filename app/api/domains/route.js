@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const payload = publicDomains();
+    const payload = await publicDomains();
     return respond(payload);
   } catch (err) {
     return handleError(err);

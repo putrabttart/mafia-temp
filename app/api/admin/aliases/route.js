@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   try {
     requireAdmin(request);
-    const payload = adminAliases();
+    const payload = await adminAliases();
     return respond(payload);
   } catch (err) {
     return handleError(err);

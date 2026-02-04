@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const payload = registerAlias(body.address || '');
+    const payload = await registerAlias(body.address || '');
     return respond(payload);
   } catch (err) {
     return handleError(err);
