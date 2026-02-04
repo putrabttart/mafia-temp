@@ -87,9 +87,12 @@ export default function HomePage() {
     }
   }
 
-  async function refreshInbox(currentAddr = address) {
-    setLoading(true);
-    setError('');
+  async function refreshInbox(currentAddr = address, options = {}) {
+    const { silent = false } = options;
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const res = await fetch(`/api/messages?alias=${encodeURIComponent(currentAddr)}`);
       if (!res.ok) throw new Error('Failed to fetch messages');
@@ -98,9 +101,9 @@ export default function HomePage() {
       setLastRefreshed(new Date().toLocaleTimeString());
     } catch (err) {
       console.error(err);
-      setError('Failed to refresh messages');
+      if (!silent) setError('Failed to refresh messages');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -120,7 +123,7 @@ export default function HomePage() {
   useEffect(() => {
     registerAlias(address);
     refreshInbox(address);
-    const timer = setInterval(() => refreshInbox(address), AUTO_REFRESH_MS);
+    const timer = setInterval(() => refreshInbox(address, { silent: true }), AUTO_REFRESH_MS);
     return () => clearInterval(timer);
   }, [address]);
 
