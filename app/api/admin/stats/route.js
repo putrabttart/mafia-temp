@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const payload = await adminStats();
     return respond(payload);
   } catch (err) {

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const payload = await revokeToken();
     return respond(payload);
   } catch (err) {

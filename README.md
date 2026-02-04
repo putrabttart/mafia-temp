@@ -5,44 +5,49 @@ Aplikasi temp mail berbasis Next.js (App Router) dengan UI publik dan dashboard 
 ## Fitur utama
 - Alias email sementara, inbox menampilkan pesan terbaru (dibatasi 3 pada UI publik).
 - Dashboard admin: statistik alias/domain/log, tambah/hapus domain & alias, clear logs, token revoke.
-- Keamanan: header `x-admin-key` untuk API admin, validasi input (Zod), optional token encryption AES-128, audit log admin actions.
+- Keamanan: Supabase Auth (email/password) untuk admin + allowlist email (`ADMIN_EMAILS`), validasi input (Zod), optional token encryption AES-128, audit log admin actions.
 - Observabilitas: health checks (`/health`, `/health/token`), structured logging, cache metrics.
-- Deploy-ready: Next.js 14, API routes, Dockerfile, `.env.example` (gunakan `.env.local`).
+- Deploy-ready: Next.js 14, API routes, migrasi Supabase untuk storage.
 
 ## Stack singkat
 - Frontend/Backend: Next.js 14 (App Router)
-- Auth admin UI: Supabase Auth (email/password) + admin API key
+- Auth admin UI: Supabase Auth (email/password)
 - Gmail access: Google APIs (read-only)
-- Data: JSON files di `/data` (aliases, domains, logs, audit)
+- Storage: Supabase (table KV) untuk token & data runtime
+
+## Prasyarat
+- Node.js 18+
+- Akun Supabase
+- Akun Google Cloud (untuk Gmail API)
+- Domain + Cloudflare (Email Routing)
 
 ## Variabel lingkungan (root .env.local)
 ```
 PORT=3000
-ADMIN_API_KEY=<ganti-dengan-kunci-kuat>
+ADMIN_EMAILS=admin@domain.com,owner@domain.com
+ADMIN_API_KEY=  # optional (legacy fallback, kosongkan jika tidak dipakai)
+
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080
+
 GOOGLE_CLIENT_ID=<client-id-google>
 GOOGLE_CLIENT_SECRET=<client-secret-google>
-GOOGLE_REDIRECT_URI=https://<domain-anda>/oauth2callback
+GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
 MAX_MESSAGES=20
 
 TOKEN_ENCRYPTION_KEY=<opsional-32-hex-untuk-AES-128>
 TOKEN_PATH=
 
-NEXT_PUBLIC_SUPABASE_URL=https://xkacsdvkpniafudevwvq.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_BpsbHQApiJVo41bccRj3-g_MgL6Ck2X
+# Supabase (client)
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
+
+# Supabase (server storage)
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
+SUPABASE_KV_TABLE=app_kv
 ```
 
-## Alur login admin (email/password Supabase)
-1. Buat user di Supabase Auth (email & password) dan auto-confirm.
-2. Buka `/admin/login`, isi email/password Supabase → Login.
-3. Setelah login, di `/admin` masukkan `Admin API Key` (header `x-admin-key`) untuk memuat data admin.
-
-## Endpoint utama
-- Publik: `/api/messages?alias=...`, `/api/messages/:id`, `/api/aliases`.
-- Admin: `/api/admin/stats`, `/api/admin/aliases`, `/api/admin/domains`, `/api/admin/logs`, `/auth/revoke` (semua butuh `x-admin-key`).
-- Health: `/health`, `/health/token`.
-
-## Cara jalan lokal
+## Instalasi lokal (ringkas)
 ```bash
 npm install
 npm run dev
@@ -50,33 +55,96 @@ npm run dev
 # Buka http://localhost:3000/admin/login untuk login admin
 ```
 
-## Deploy cepat (Railway/Vercel)
-- Set semua ENV di dashboard (lihat daftar di atas).
-- Pastikan `GOOGLE_REDIRECT_URI` pakai domain produksi.
-- Deploy; Next.js akan build dan serve API + UI.
+## Setup Supabase (Auth + Storage KV)
+1) Buat project Supabase.
+2) Aktifkan Email/Password Auth.
+3) Buat user admin (Auth → Users) dan auto-confirm.
+4) Jalankan SQL storage KV (lihat file supabase/schema.template.sql atau supabase/migrations/20260204_0001_app_kv.sql).
+5) Set env `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KV_TABLE`.
+6) Isi `ADMIN_EMAILS` dengan email admin yang diizinkan.
+
+## Setup Google OAuth (Gmail API)
+1) Buat project di Google Cloud.
+2) Enable Gmail API.
+3) Buat OAuth Client (Web Application).
+4) Set Authorized redirect URIs:
+   - Local: http://localhost:3000/oauth2callback
+   - Production: https://<domain-anda>/oauth2callback
+5) Isi `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+
+## Setup Cloudflare Email Routing + DNS
+> Tujuan: semua email ke domain kamu diarahkan ke 1 inbox Gmail (yang juga dipakai oleh Gmail API).
+
+### 1) Tambahkan domain ke Cloudflare
+- Pastikan nameserver domain sudah menunjuk ke Cloudflare.
+
+### 2) Aktifkan Email Routing
+- Cloudflare Dashboard → Email → Email Routing → Enable.
+- Tambahkan Destination Address (email tujuan), lalu verifikasi lewat email.
+
+### 3) DNS Records wajib
+Hapus MX record lama jika ada, lalu tambahkan record berikut:
+
+**MX**
+- Name: @
+- Value: route1.mx.cloudflare.net, Priority: 49
+- Name: @
+- Value: route2.mx.cloudflare.net, Priority: 50
+- Name: @
+- Value: route3.mx.cloudflare.net, Priority: 50
+
+**TXT (SPF)**
+- Name: @
+- Value: v=spf1 include:_spf.mx.cloudflare.net ~all
+
+**(Opsional, disarankan) TXT (DMARC)**
+- Name: _dmarc
+- Value: v=DMARC1; p=none; rua=mailto:postmaster@yourdomain.com
+
+### 4) Buat Route
+- Tambahkan Route: `*@domain.com` → destination email yang sudah diverifikasi.
+
+### 5) Tambahkan domain ke aplikasi
+- Buka `/admin` → tab Domains → Add domain (misal: domain.com).
+- Pastikan domain `active`.
+
+## Alur login admin
+1) Buat user admin di Supabase Auth (email & password).
+2) Buka `/admin/login`, login dengan email/password.
+3) Akses `/admin` dan data akan terbuka jika email termasuk `ADMIN_EMAILS`.
+
+## Endpoint utama
+- Publik: `/api/messages?alias=...`, `/api/messages/:id`, `/api/aliases`.
+- Admin: `/api/admin/stats`, `/api/admin/aliases`, `/api/admin/domains`, `/api/admin/logs`, `/auth/revoke`.
+- Health: `/health`, `/health/token`.
+
+## Deploy ke Vercel
+1) Set semua ENV di Vercel (Production).
+2) Pastikan `GOOGLE_REDIRECT_URI` sudah pakai domain produksi.
+3) Deploy.
 
 ## Catatan keamanan
-- Ganti `ADMIN_API_KEY` (≥32 char) dan simpan di secret manager.
-- Batasi `ALLOWED_ORIGINS` ke domain resmi.
-- Lindungi `token.json` (tidak di-commit; sudah di `.gitignore`).
-- Gunakan `TOKEN_ENCRYPTION_KEY` untuk enkripsi token Gmail.
+- **Jangan** taruh `SUPABASE_SERVICE_ROLE_KEY` di client.
+- Isi `ADMIN_EMAILS` agar hanya email tertentu yang boleh akses admin.
+- Rotasi secret jika pernah terpublikasi.
+- Gunakan `TOKEN_ENCRYPTION_KEY` agar token Gmail tersimpan terenkripsi.
 
 ## Struktur ringkas
 ```
 app/
   page.jsx          (UI publik PBS Mail)
-  admin/page.jsx    (Dashboard admin, protected Supabase session + x-admin-key)
+  admin/page.jsx    (Dashboard admin, protected Supabase session)
   admin/login/      (Halaman login admin email/password)
   api/...           (API routes Next.js)
 lib/server/...      (Runtime, Gmail, validation, logging)
 lib/supabaseClient.js
-data/               (aliases.json, domains.json, logs.json, audit.json)
+supabase/           (SQL schema & migrations)
 .env.local
 ```
 
 ## Troubleshooting singkat
-- 401 / admin API: pastikan header `x-admin-key` benar.
-- 404 /api/admin/logs: pastikan deployment terbaru (redeploy jika perlu).
-- OAuth error redirect_uri_mismatch: samakan `GOOGLE_REDIRECT_URI` dengan yang di Google Console.
+- 401 / admin API: pastikan login admin sukses dan email ada di `ADMIN_EMAILS`.
+- OAuth error redirect_uri_mismatch: samakan `GOOGLE_REDIRECT_URI` dengan Google Console.
 - Tidak bisa login admin: user belum dibuat/confirm di Supabase Auth.
+- Email tidak masuk: cek MX, SPF, dan route di Cloudflare Email Routing.
 

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(request, { params }) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const body = await request.json();
     const payload = await updateDomain(params.name, body || {});
     return respond(payload);
@@ -17,7 +17,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const payload = await deleteDomain(params.name);
     return respond(payload);
   } catch (err) {

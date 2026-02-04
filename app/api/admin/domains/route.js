@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const payload = await adminDomains();
     return respond(payload);
   } catch (err) {
@@ -16,7 +16,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    requireAdmin(request);
+    await requireAdmin(request);
     const body = await request.json();
     const payload = await addDomain(body.name || '');
     return respond(payload);

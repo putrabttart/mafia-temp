@@ -11,41 +11,11 @@ function useBootstrap() {
   }, []);
 }
 
-function useAdminKey() {
-  const [key, setKey] = useState('');
-
-  useEffect(() => {
-    const storedNew = typeof window !== 'undefined' ? window.localStorage.getItem('pbsAdminKey') : '';
-    const storedOld = typeof window !== 'undefined' ? window.localStorage.getItem('mafiaAdminKey') : '';
-    const initial = storedNew || storedOld || '';
-    if (initial) {
-      setKey(initial);
-      // migrate old key to new name
-      try {
-        window.localStorage.setItem('pbsAdminKey', initial);
-        if (storedOld) window.localStorage.removeItem('mafiaAdminKey');
-      } catch (e) {
-        console.error('Failed to migrate admin key', e);
-      }
-    }
-  }, []);
-
-  const persist = (val) => {
-    setKey(val);
-    try {
-      window.localStorage.setItem('pbsAdminKey', val);
-    } catch (e) {
-      console.error('Failed to persist admin key', e);
-    }
-  };
-
-  return [key, persist];
-}
-
 export default function AdminPage() {
   const router = useRouter();
   useBootstrap();
-  const [adminKey, setAdminKey] = useAdminKey();
+  const [accessToken, setAccessToken] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [stats, setStats] = useState(null);
   const [aliases, setAliases] = useState([]);
   const [domains, setDomains] = useState([]);
@@ -64,12 +34,14 @@ export default function AdminPage() {
         router.replace('/admin/login');
         return;
       }
+      setAccessToken(data.session.access_token || '');
+      setUserEmail(data.session.user?.email || '');
       setSessionChecked(true);
     };
     ensureSession();
   }, [router]);
 
-  const authHeaders = adminKey ? { 'x-admin-key': adminKey } : {};
+  const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
   async function fetchWithAdmin(path, options = {}) {
     const headers = { ...(options.headers || {}), ...authHeaders };
@@ -85,7 +57,7 @@ export default function AdminPage() {
 
   const loadAll = async () => {
     if (!sessionChecked) return;
-    if (!adminKey) return;
+    if (!accessToken) return;
     setLoading(true);
     try {
       const results = await Promise.allSettled([
@@ -114,8 +86,8 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (adminKey) loadAll();
-  }, [adminKey, sessionChecked]);
+    if (accessToken) loadAll();
+  }, [accessToken, sessionChecked]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -212,22 +184,21 @@ export default function AdminPage() {
         <div className="row mb-4">
           <div className="col-12">
             <div className="bg-white rounded-lg shadow-sm p-4">
-              <h6 className="fw-bold mb-3">API Configuration</h6>
+              <h6 className="fw-bold mb-3">Admin Session</h6>
               <div className="row g-3 align-items-end">
                 <div className="col-md-9">
-                  <label className="form-label small fw-500">Admin API Key</label>
+                  <label className="form-label small fw-500">Signed in as</label>
                   <input
-                    type="password"
+                    type="text"
                     className="form-control"
-                    value={adminKey}
-                    onChange={(e) => setAdminKey(e.target.value)}
-                    placeholder="Paste your admin key here"
+                    value={userEmail || 'Unknown'}
+                    readOnly
                   />
                 </div>
                 <div className="col-md-3">
-                  <button className="btn btn-primary w-100" onClick={loadAll} disabled={loading || !adminKey}>
+                  <button className="btn btn-primary w-100" onClick={loadAll} disabled={loading || !accessToken}>
                     <i className={`bi ${loading ? 'bi-hourglass-split' : 'bi-arrow-clockwise'} me-2`} />
-                    {loading ? 'Loading...' : 'Connect'}
+                    {loading ? 'Loading...' : 'Reload'}
                   </button>
                 </div>
               </div>
